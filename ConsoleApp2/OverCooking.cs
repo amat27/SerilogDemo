@@ -89,19 +89,23 @@
             this.To = to;
         }
 
-        private void Work(Dish dish)
+        private async Task Work(Dish dish)
         {
             using (LogContext.PushProperty("MessageId", dish.Id))
             {
-                this.Logger.Information("Start working on {MessageId}");
-
-                if (this.To == null)
+                using (this.Logger.BeginTimedOperation("Start working"))
                 {
-                    this.Logger.Warning("Ending dish life cycle of {MessageId}");
-                    return;
-                }
+                    int ms = this.rd.Next(100);
+                    await Task.Delay(ms);
 
-                this.To.Add(dish);
+                    if (this.To == null)
+                    {
+                        this.Logger.Warning("Ending dish life cycle of {MessageId}");
+                        return;
+                    }
+
+                    this.To.Add(dish);
+                }
             }
         }
 
@@ -111,7 +115,7 @@
             {
                 if (this.From.TryTake(out var dish))
                 {
-                    this.Work(dish);
+                    await this.Work(dish);
                 }
 
                 await Task.Delay(100);
@@ -148,8 +152,9 @@
         static OverCooking()
         {
             var log = new LoggerConfiguration().Enrich.FromLogContext()
-                .WriteTo.ColoredConsole(outputTemplate: "[{Timestamp:HH:mm:ss} {Level:u3} {Source} {Id}] {Message:lj}{NewLine}{Exception}")
-                .WriteTo.Seq("http://localhost:5341")
+                .WriteTo.ColoredConsole()
+                //.WriteTo.ColoredConsole(outputTemplate: "[{Timestamp:HH:mm:ss} {Level:u3} {Source} {Id}] {Message:lj}{NewLine}{Exception}")
+                //.WriteTo.Seq("http://localhost:5341")
                 .CreateLogger();
             Log.Logger = log;
         }
