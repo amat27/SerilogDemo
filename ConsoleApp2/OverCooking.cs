@@ -10,32 +10,50 @@
 
     class Kitchen
     {
-        Kitchen(int dishes, int workers)
+        internal Kitchen(int workers)
         {
-            for (int i = 0; i < dishes; i++)
-            {
-                this.EmptyDishes.Add(new Dish());
-            }
-
             for (int i = 0; i < workers; i++)
             {
-                this.Chefs.Add(new Chef());
+                this.Chefs.Add(new Chef(this));
+                this.Waiters.Add(new Waiter(this));
+                this.Cleaners.Add(new Cleaner(this));
             }
-
-
         }
 
-        BlockingCollection<Dish> EmptyDishes { get; } = new BlockingCollection<Dish>();
+        internal void Order()
+        {
+            this.EmptyDishes.Add(new Dish());
+        }
 
-        BlockingCollection<Dish> DishesWithFood { get; } = new BlockingCollection<Dish>();
+        internal BlockingCollection<Dish> EmptyDishes { get; } = new BlockingCollection<Dish>();
 
-        BlockingCollection<Dish> DirtyDishes { get; } = new BlockingCollection<Dish>();
+        internal BlockingCollection<Dish> DishesWithFood { get; } = new BlockingCollection<Dish>();
+
+        internal BlockingCollection<Dish> DirtyDishes { get; } = new BlockingCollection<Dish>();
 
         BlockingCollection<Chef> Chefs { get; } = new BlockingCollection<Chef>();
 
         BlockingCollection<Waiter> Waiters { get; } = new BlockingCollection<Waiter>();
 
         BlockingCollection<Cleaner> Cleaners { get; } = new BlockingCollection<Cleaner>();
+
+        internal void Start()
+        {
+            foreach (var chef in Chefs)
+            {
+                chef.Start();
+            }
+
+            foreach (var waiter in Waiters)
+            {
+                waiter.Start();
+            }
+
+            foreach (var cleaner in Cleaners)
+            {
+                cleaner.Start();
+            }
+        }
     }
 
     class Dish
@@ -52,30 +70,72 @@
     {
         private Guid Id { get; }
 
-        internal Worker()
+        protected BlockingCollection<Dish> From { get; }
+
+        protected BlockingCollection<Dish> To { get; }
+
+        internal Worker(BlockingCollection<Dish> from, BlockingCollection<Dish> to)
         {
             this.Id = Guid.NewGuid();
+            this.From = from;
+            this.To = to;
         }
-    }
 
-    class Chef:Worker
-    {
-        Task Cook(Dish dish)
+        void Work(Dish dish)
         {
-            
+            if (this.To == null)
+            {
+                return;
+            }
+
+            this.To.Add(dish);
+        }
+
+        internal async Task Start()
+        {
+            while (true)
+            {
+                if (this.From.TryTake(out var dish))
+                {
+                    this.Work(dish);
+                }
+
+                await Task.Delay(500);
+            }
         }
     }
 
-    class Waiter
+    class Chef : Worker
     {
+        internal Chef(Kitchen kitchen)
+            : base(kitchen.EmptyDishes, kitchen.DishesWithFood)
+        {
+        }
     }
 
-    class Cleaner
+    class Waiter : Worker
     {
+        internal Waiter(Kitchen kitchen)
+            : base(kitchen.DishesWithFood, kitchen.DirtyDishes)
+        {
+        }
+    }
+
+    class Cleaner : Worker
+    {
+        internal Cleaner(Kitchen kitchen)
+            : base(kitchen.DirtyDishes, null)
+        {
+        }
     }
 
     class OverCooking
     {
-
+        internal static void Simulate()
+        {
+            Kitchen kitchen = new Kitchen(3);
+            kitchen.Start();
+            kitchen.Order();
+        }
     }
 }

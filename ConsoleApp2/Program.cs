@@ -10,6 +10,8 @@
     {
         static void Main(string[] args)
         {
+            OverCooking.Simulate();
+            Console.ReadLine();
         }
     }
 }
