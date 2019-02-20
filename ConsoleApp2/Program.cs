@@ -18,7 +18,7 @@
 
             log.Information("Start simulating");
             OverCooking.Simulate();
-            log.Information("End simulating");
+            log.Information("Simulating asynchronously");
             Console.ReadLine();
         }
     }

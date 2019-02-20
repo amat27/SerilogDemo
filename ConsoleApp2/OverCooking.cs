@@ -7,7 +7,7 @@
     using Serilog;
     using Serilog.Context;
 
-    class Kitchen
+    internal class Kitchen
     {
         internal Kitchen(int workers)
         {
@@ -30,11 +30,11 @@
 
         internal BlockingCollection<Dish> DirtyDishes { get; } = new BlockingCollection<Dish>();
 
-        BlockingCollection<Chef> Chefs { get; } = new BlockingCollection<Chef>();
+        private BlockingCollection<Chef> Chefs { get; } = new BlockingCollection<Chef>();
 
-        BlockingCollection<Waiter> Waiters { get; } = new BlockingCollection<Waiter>();
+        private BlockingCollection<Waiter> Waiters { get; } = new BlockingCollection<Waiter>();
 
-        BlockingCollection<Cleaner> Cleaners { get; } = new BlockingCollection<Cleaner>();
+        private BlockingCollection<Cleaner> Cleaners { get; } = new BlockingCollection<Cleaner>();
 
         internal void Start()
         {
@@ -55,20 +55,20 @@
         }
     }
 
-    class Dish
+    internal class Dish
     {
         private static ILogger Logger = Log.Logger.ForContext("Source", nameof(Dish));
 
         internal Dish()
         {
             this.Id = Guid.NewGuid();
-            Logger.Information("Dish {MessageId} generated.", this.Id);
+            Logger.Warning("Dish {MessageId} generated.", this.Id);
         }
 
         internal Guid Id { get; }
     }
 
-    abstract class Worker
+    internal abstract class Worker
     {
         private Random rd = new Random();
 
@@ -80,14 +80,14 @@
 
         protected ILogger Logger { get; set; }
 
-        internal Worker(BlockingCollection<Dish> from, BlockingCollection<Dish> to)
+        protected Worker(BlockingCollection<Dish> from, BlockingCollection<Dish> to)
         {
             this.Id = Guid.NewGuid();
             this.From = from;
             this.To = to;
         }
 
-        void Work(Dish dish)
+        private void Work(Dish dish)
         {
             using (LogContext.PushProperty("MessageId", dish.Id))
             {
@@ -112,44 +112,41 @@
                     this.Work(dish);
                 }
 
-                await Task.Delay(500);
+                await Task.Delay(100);
             }
         }
     }
 
-    class Chef : Worker
+    internal class Chef : Worker
     {
-        internal Chef(Kitchen kitchen)
-            : base(kitchen.EmptyDishes, kitchen.DishesWithFood)
+        internal Chef(Kitchen kitchen) : base(kitchen.EmptyDishes, kitchen.DishesWithFood)
         {
             this.Logger = Log.Logger.ForContext("Source", nameof(Chef)).ForContext("Id", this.Id);
         }
     }
 
-    class Waiter : Worker
+    internal class Waiter : Worker
     {
-        internal Waiter(Kitchen kitchen)
-            : base(kitchen.DishesWithFood, kitchen.DirtyDishes)
+        internal Waiter(Kitchen kitchen) : base(kitchen.DishesWithFood, kitchen.DirtyDishes)
         {
             this.Logger = Log.Logger.ForContext("Source", nameof(Waiter)).ForContext("Id", this.Id);
         }
     }
 
-    class Cleaner : Worker
+    internal class Cleaner : Worker
     {
-        internal Cleaner(Kitchen kitchen)
-            : base(kitchen.DirtyDishes, null)
+        internal Cleaner(Kitchen kitchen) : base(kitchen.DirtyDishes, null)
         {
             this.Logger = Log.Logger.ForContext("Source", nameof(Cleaner)).ForContext("Id", this.Id);
         }
     }
 
-    class OverCooking
+    internal static class OverCooking
     {
         static OverCooking()
         {
-            var log = new LoggerConfiguration().Enrich.FromLogContext().WriteTo.ColoredConsole(
-                    outputTemplate: "[{Timestamp:HH:mm:ss} {Level:u3} {Source} {Id}] {Message:lj}{NewLine}{Exception}")
+            var log = new LoggerConfiguration().Enrich.FromLogContext()
+                .WriteTo.ColoredConsole(outputTemplate: "[{Timestamp:HH:mm:ss} {Level:u3} {Source} {Id}] {Message:lj}{NewLine}{Exception}")
                 .CreateLogger();
             Log.Logger = log;
         }
@@ -160,9 +157,11 @@
             log.Information("Building Kitchen");
             Kitchen kitchen = new Kitchen(3);
             kitchen.Start();
-            kitchen.Order();
-            kitchen.Order();
-            kitchen.Order();
+
+            for (int i = 0; i < 1; i++)
+            {
+                kitchen.Order();
+            }
         }
     }
 }
