@@ -1,12 +1,11 @@
 ﻿namespace ConsoleApp2
 {
     using System;
-    using System.Collections;
     using System.Collections.Concurrent;
-    using System.Collections.Generic;
-    using System.Linq;
-    using System.Text;
     using System.Threading.Tasks;
+
+    using Serilog;
+    using Serilog.Context;
 
     class Kitchen
     {
@@ -58,21 +57,28 @@
 
     class Dish
     {
+        private static ILogger Logger = Log.Logger.ForContext("Source", nameof(Dish));
+
         internal Dish()
         {
             this.Id = Guid.NewGuid();
+            Logger.Information("Dish {MessageId} generated.", this.Id);
         }
 
-        private Guid Id { get; }
+        internal Guid Id { get; }
     }
 
     abstract class Worker
     {
-        private Guid Id { get; }
+        private Random rd = new Random();
+
+        protected Guid Id { get; }
 
         protected BlockingCollection<Dish> From { get; }
 
         protected BlockingCollection<Dish> To { get; }
+
+        protected ILogger Logger { get; set; }
 
         internal Worker(BlockingCollection<Dish> from, BlockingCollection<Dish> to)
         {
@@ -83,12 +89,18 @@
 
         void Work(Dish dish)
         {
-            if (this.To == null)
+            using (LogContext.PushProperty("MessageId", dish.Id))
             {
-                return;
-            }
+                Logger.Information("Start working on {MessageId}");
 
-            this.To.Add(dish);
+                if (this.To == null)
+                {
+                    Logger.Warning("Ending dish life cycle of {MessageId}");
+                    return;
+                }
+
+                this.To.Add(dish);
+            }
         }
 
         internal async Task Start()
@@ -110,6 +122,7 @@
         internal Chef(Kitchen kitchen)
             : base(kitchen.EmptyDishes, kitchen.DishesWithFood)
         {
+            this.Logger = Log.Logger.ForContext("Source", nameof(Chef)).ForContext("Id", this.Id);
         }
     }
 
@@ -118,6 +131,7 @@
         internal Waiter(Kitchen kitchen)
             : base(kitchen.DishesWithFood, kitchen.DirtyDishes)
         {
+            this.Logger = Log.Logger.ForContext("Source", nameof(Waiter)).ForContext("Id", this.Id);
         }
     }
 
@@ -126,15 +140,28 @@
         internal Cleaner(Kitchen kitchen)
             : base(kitchen.DirtyDishes, null)
         {
+            this.Logger = Log.Logger.ForContext("Source", nameof(Cleaner)).ForContext("Id", this.Id);
         }
     }
 
     class OverCooking
     {
+        static OverCooking()
+        {
+            var log = new LoggerConfiguration().Enrich.FromLogContext().WriteTo.ColoredConsole(
+                    outputTemplate: "[{Timestamp:HH:mm:ss} {Level:u3} {Source} {Id}] {Message:lj}{NewLine}{Exception}")
+                .CreateLogger();
+            Log.Logger = log;
+        }
+
         internal static void Simulate()
         {
+            var log = Log.Logger.ForContext("Source", nameof(OverCooking));
+            log.Information("Building Kitchen");
             Kitchen kitchen = new Kitchen(3);
             kitchen.Start();
+            kitchen.Order();
+            kitchen.Order();
             kitchen.Order();
         }
     }
