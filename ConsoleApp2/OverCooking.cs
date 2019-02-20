@@ -38,17 +38,17 @@
 
         internal void Start()
         {
-            foreach (var chef in Chefs)
+            foreach (var chef in this.Chefs)
             {
                 chef.Start();
             }
 
-            foreach (var waiter in Waiters)
+            foreach (var waiter in this.Waiters)
             {
                 waiter.Start();
             }
 
-            foreach (var cleaner in Cleaners)
+            foreach (var cleaner in this.Cleaners)
             {
                 cleaner.Start();
             }
@@ -57,12 +57,14 @@
 
     internal class Dish
     {
+        private static Random rd = new Random();
+
         private static ILogger Logger = Log.Logger.ForContext("Source", nameof(Dish));
 
         internal Dish()
         {
             this.Id = Guid.NewGuid();
-            Logger.Warning("Dish {MessageId} generated.", this.Id);
+            Logger.Warning("Dish {MessageId} generated. Price {Price}", this.Id, rd.Next(100));
         }
 
         internal Guid Id { get; }
@@ -91,11 +93,11 @@
         {
             using (LogContext.PushProperty("MessageId", dish.Id))
             {
-                Logger.Information("Start working on {MessageId}");
+                this.Logger.Information("Start working on {MessageId}");
 
                 if (this.To == null)
                 {
-                    Logger.Warning("Ending dish life cycle of {MessageId}");
+                    this.Logger.Warning("Ending dish life cycle of {MessageId}");
                     return;
                 }
 
@@ -147,6 +149,7 @@
         {
             var log = new LoggerConfiguration().Enrich.FromLogContext()
                 .WriteTo.ColoredConsole(outputTemplate: "[{Timestamp:HH:mm:ss} {Level:u3} {Source} {Id}] {Message:lj}{NewLine}{Exception}")
+                .WriteTo.Seq("http://localhost:5341")
                 .CreateLogger();
             Log.Logger = log;
         }
@@ -158,7 +161,7 @@
             Kitchen kitchen = new Kitchen(3);
             kitchen.Start();
 
-            for (int i = 0; i < 1; i++)
+            for (int i = 0; i < 5; i++)
             {
                 kitchen.Order();
             }
